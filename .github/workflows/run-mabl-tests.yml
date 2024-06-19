@@ -1,0 +1,33 @@
+name: Run Mabl Tests
+on:
+  push:
+    branches:
+      - main # Change this to your preferred branch
+  #pull request:
+    #branches:
+      - main # Change this to your preferred branch
+
+jobs:
+  mabl:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Run Mabl Tests
+        env:
+          MABL_API_KEY: ${{ secrets.MABL_API_KEY }};
+        run: |
+          ENVIRONMENT_ID=STAGING
+          TEST_LABELS=Staging_Smoke
+          RESPONSE=$(curl -X POST "https://api.mabl.com/v1/execution" \ -H "Content-Type:application/json" \ -H "mabl-api-key: $MABL_API_KEY" \ -d '{"environment_id": "'$ENVIRONMENT_ID'", "properties": {"test_labels": ["'$TEST_LABELS'"] }}')
+          EXECUTION_ID=$(echo $RESPONSE | jq -r '.id')
+          STATUS='running'
+          while [ "$STATUS" == "running" ]; do 
+          sleep 30
+          RESULT=$(curl -X GET "https://api.mabl.com/v1/execution/$EXECUTION_ID" \ -H "Content-Type:application/json" \ -H "mabl-api-key: $MABL_API_KEY")
+          STATUS=$(echo $RESULT | jq -r '.status')
+          echo "Current status: $STATUS" done
+          if [ "$STATUS" != "succeeded" ]; then echo "Mabl tests failed" exit 1
+          else echo "Mabl tests passed"
